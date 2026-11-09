@@ -1,0 +1,759 @@
+AWSTemplateFormatVersion: "2010-09-09"  # template format version
+Description: >-
+  Onward Logistics sales day order system. Public ALB in front of a private,
+  multi-AZ, CPU target-tracking Auto Scaling Group, with a Regional NAT Gateway
+  for outbound updates. Deployed through CloudFormation Git sync.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: onward-logistics
+    AllowedPattern: "^[a-z0-9-]+$"  # lowercase letters, digits and dashes only
+    Description: Project part of the naming convention, lowercase.
+  Environment:
+    Type: String
+    Default: lab
+    AllowedValues:
+      - lab
+      - dev
+      - test
+      - prod
+  Owner:
+    Type: String
+    Default: student
+    Description: Owner tag value (Client Profile mandatory tag).
+  CostCenter:
+    Type: String
+    Default: training
+    Description: CostCenter tag value (Client Profile mandatory tag).
+  StudentFullName:
+    Type: String
+    Description: Full name shown on every page served by the application.
+  AppRepoUrl:
+    Type: String
+    Description: Public HTTPS Git URL of the repository that holds the app/ folder.
+  AppRepoRef:
+    Type: String
+    Default: main
+    Description: Branch or tag of the app repository to deploy (pin a tag such as v1.0.0).
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+      - t3.small
+  CpuCredits:
+    Type: String
+    Default: unlimited
+    AllowedValues:
+      - standard
+      - unlimited
+    Description: >-
+      Burstable credit mode. unlimited keeps CPU at 100% during the load demo
+      (a few cents of surplus credits); standard throttles to baseline when
+      credits run out, which can stop the scale-out demo.
+  MinSize:
+    Type: Number
+    Default: 2
+    MinValue: 2
+    Description: Minimum instances. At least 2 so that each AZ always has one.
+  MaxSize:
+    Type: Number
+    Default: 6
+    MinValue: 2
+    Description: Maximum instances. Caps the worst-case cost of a peak day.
+  TargetCpu:
+    Type: Number
+    Default: 50
+    MinValue: 10
+    MaxValue: 90
+    Description: Average CPU percent that target tracking keeps the fleet at.
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>  # resolved from the public SSM parameter at deploy time
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64  # latest Amazon Linux 2023, no hard-coded AMI ID
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnetACidr:
+    Type: String
+    Default: 10.0.0.0/24
+  PublicSubnetBCidr:
+    Type: String
+    Default: 10.0.1.0/24
+  PrivateSubnetACidr:
+    Type: String
+    Default: 10.0.10.0/24
+  PrivateSubnetBCidr:
+    Type: String
+    Default: 10.0.11.0/24
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Network
+  # ---------------------------------------------------------------------------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr  # address range of the VPC
+      EnableDnsSupport: true  # Amazon DNS inside the VPC
+      EnableDnsHostnames: true  # DNS names for instances (needed by SSM)
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-vpc"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Internet Gateway: the VPC's door to the internet
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-igw"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Attach the IGW to the VPC
+  IgwAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc  # lives in our VPC
+      InternetGatewayId: !Ref Igw
+
+  # Public subnet in AZ 1 (ALB node, NAT)
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc  # lives in our VPC
+      CidrBlock: !Ref PublicSubnetACidr  # address range of this subnet
+      AvailabilityZone: !Select  # pick an AZ from the list below
+        - 0  # index 0 = first AZ
+        - !GetAZs ""  # AZs of the current region
+      MapPublicIpOnLaunch: false  # never give instances public IPs
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-public-a"
+        - Key: Tier
+          Value: public
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Public subnet in AZ 2 (ALB node, NAT)
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc  # lives in our VPC
+      CidrBlock: !Ref PublicSubnetBCidr  # address range of this subnet
+      AvailabilityZone: !Select  # pick an AZ from the list below
+        - 1  # index 1 = second AZ
+        - !GetAZs ""  # AZs of the current region
+      MapPublicIpOnLaunch: false  # never give instances public IPs
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-public-b"
+        - Key: Tier
+          Value: public
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Private subnet in AZ 1 (app servers, no public IPs)
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc  # lives in our VPC
+      CidrBlock: !Ref PrivateSubnetACidr  # address range of this subnet
+      AvailabilityZone: !Select  # pick an AZ from the list below
+        - 0  # index 0 = first AZ
+        - !GetAZs ""  # AZs of the current region
+      MapPublicIpOnLaunch: false  # never give instances public IPs
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-private-a"
+        - Key: Tier
+          Value: private
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Private subnet in AZ 2 (app servers, no public IPs)
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc  # lives in our VPC
+      CidrBlock: !Ref PrivateSubnetBCidr  # address range of this subnet
+      AvailabilityZone: !Select  # pick an AZ from the list below
+        - 1  # index 1 = second AZ
+        - !GetAZs ""  # AZs of the current region
+      MapPublicIpOnLaunch: false  # never give instances public IPs
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-private-b"
+        - Key: Tier
+          Value: private
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Route table for the public subnets
+  PublicRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc  # lives in our VPC
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-public-rt"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Public subnets reach the internet through the IGW
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IgwAttach  # wait until the IGW is attached
+    Properties:
+      RouteTableId: !Ref PublicRt  # route table to use
+      DestinationCidrBlock: 0.0.0.0/0  # default route (all internet traffic)
+      GatewayId: !Ref Igw  # send it to the Internet Gateway
+
+  # Use the public route table in public subnet A
+  PublicSubnetAAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA  # subnet to associate
+      RouteTableId: !Ref PublicRt  # route table to use
+
+  # Use the public route table in public subnet B
+  PublicSubnetBAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB  # subnet to associate
+      RouteTableId: !Ref PublicRt  # route table to use
+
+  # One Regional NAT Gateway serves every AZ in the VPC. In automatic mode
+  # AWS allocates the Elastic IPs and expands the gateway into each AZ that
+  # has workloads, so no SubnetId or AllocationId is given.
+  RegionalNat:
+    Type: AWS::EC2::NatGateway
+    DependsOn: IgwAttach  # wait until the IGW is attached
+    Properties:
+      AvailabilityMode: regional  # one gateway spanning all AZs
+      ConnectivityType: public  # public NAT (AWS allocates the EIPs)
+      VpcId: !Ref Vpc  # lives in our VPC
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-regional-nat"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Route table for the private subnets
+  PrivateRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc  # lives in our VPC
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-private-rt"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Private subnets go out through the NAT (no inbound path)
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRt  # route table to use
+      DestinationCidrBlock: 0.0.0.0/0  # default route (all internet traffic)
+      NatGatewayId: !Ref RegionalNat  # send it to the Regional NAT
+
+  # Use the private route table in private subnet A
+  PrivateSubnetAAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA  # subnet to associate
+      RouteTableId: !Ref PrivateRt  # route table to use
+
+  # Use the private route table in private subnet B
+  PrivateSubnetBAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB  # subnet to associate
+      RouteTableId: !Ref PrivateRt  # route table to use
+
+  # ---------------------------------------------------------------------------
+  # Security groups: Internet -> ALB SG -> App SG. No CIDR ingress on the app
+  # tier and no port 22 anywhere. Admin access is SSM Session Manager only.
+  # ---------------------------------------------------------------------------
+  AlbSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${ProjectName}-${Environment}-alb-sg"
+      GroupDescription: Public entry point, HTTP from the internet
+      VpcId: !Ref Vpc  # lives in our VPC
+      SecurityGroupIngress:  # inbound rules
+        - Description: HTTP from the internet
+          IpProtocol: tcp  # TCP traffic
+          FromPort: 80  # port 80 (HTTP)
+          ToPort: 80
+          CidrIp: 0.0.0.0/0  # anywhere
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-alb-sg"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Firewall for the servers: only the ALB may connect
+  AppSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${ProjectName}-${Environment}-app-sg"
+      GroupDescription: App servers, reachable only from the ALB security group
+      VpcId: !Ref Vpc  # lives in our VPC
+      SecurityGroupIngress:  # inbound rules
+        - Description: App port from the ALB only
+          IpProtocol: tcp  # TCP traffic
+          FromPort: 8080  # app port
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref AlbSg  # only from the ALB security group (no CIDR, no port 22)
+      SecurityGroupEgress:  # outbound limited to web traffic via the NAT
+        - Description: HTTP out via NAT (package repos)
+          IpProtocol: tcp  # TCP traffic
+          FromPort: 80  # port 80 (HTTP)
+          ToPort: 80
+          CidrIp: 0.0.0.0/0  # anywhere
+        - Description: HTTPS out via NAT (git, pip, SSM, Secrets Manager)
+          IpProtocol: tcp  # TCP traffic
+          FromPort: 443  # port 443 (HTTPS)
+          ToPort: 443
+          CidrIp: 0.0.0.0/0  # anywhere
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-app-sg"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # ---------------------------------------------------------------------------
+  # Secret and IAM. No inline policies: only ManagedPolicyArns and
+  # AWS::IAM::ManagedPolicy resources are used.
+  # ---------------------------------------------------------------------------
+  LoadTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-load-token"
+      Description: Token that protects the /burn load-generation endpoint
+      GenerateSecretString:  # AWS generates the token, it is never in Git
+        PasswordLength: 24  # 24 characters
+        ExcludePunctuation: true  # letters and digits only, easy to paste
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-load-token"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Customer managed policy (not inline): read only that secret
+  ReadLoadTokenPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ProjectName}-${Environment}-read-load-token"
+      Description: Lets app instances read the load-test token
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ReadLoadToken
+            Effect: Allow
+            Action: secretsmanager:GetSecretValue  # read the value
+            Resource: !Ref LoadTokenSecret  # only this one secret
+
+  # Role the EC2 instances assume (managed policies only)
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-app-role"
+      Description: Role assumed by the app instances
+      AssumeRolePolicyDocument:  # who may use this role
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com  # EC2 instances
+            Action: sts:AssumeRole
+      ManagedPolicyArns:  # managed policies only, no inline Policies
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"  # SSM Session Manager and Run Command
+        - !Ref ReadLoadTokenPolicy  # our customer managed policy
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-app-role"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Wrapper that hands the role to EC2
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${ProjectName}-${Environment}-app-profile"
+      Roles:
+        - !Ref InstanceRole
+
+  # ---------------------------------------------------------------------------
+  # Load balancer
+  # ---------------------------------------------------------------------------
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn: PublicDefaultRoute
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-alb"
+      Scheme: internet-facing  # public load balancer
+      Type: application  # layer 7 (HTTP) load balancer
+      Subnets:  # ALB nodes in both public subnets
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      SecurityGroups:
+        - !Ref AlbSg  # use the ALB firewall
+      LoadBalancerAttributes:
+        - Key: routing.http.drop_invalid_header_fields.enabled  # drop malformed HTTP headers
+          Value: "true"
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-alb"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # The servers the ALB forwards to, with health checks
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-tg"
+      VpcId: !Ref Vpc  # lives in our VPC
+      Port: 8080  # app port on the instances
+      Protocol: HTTP  # plain HTTP (HTTPS needs a domain and certificate)
+      TargetType: instance  # targets are EC2 instances
+      HealthCheckPath: /health  # ALB calls this URL
+      HealthCheckIntervalSeconds: 15  # every 15 seconds
+      HealthCheckTimeoutSeconds: 5  # fail if no answer in 5 s
+      HealthyThresholdCount: 2  # 2 passes = healthy
+      UnhealthyThresholdCount: 2  # 2 failures = unhealthy
+      Matcher:
+        HttpCode: "200"  # only 200 counts as healthy
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds  # drain connections for 30 s on removal
+          Value: "30"
+        - Key: load_balancing.algorithm.type  # spread requests evenly
+          Value: round_robin
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-tg"
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Listen on port 80 and forward everything to the target group
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 80  # public HTTP port
+      Protocol: HTTP  # plain HTTP (HTTPS needs a domain and certificate)
+      DefaultActions:
+        - Type: forward  # forward requests to the target group
+          TargetGroupArn: !Ref TargetGroup
+
+  # ---------------------------------------------------------------------------
+  # Compute: launch template, Auto Scaling Group, target tracking policy
+  # ---------------------------------------------------------------------------
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${ProjectName}-${Environment}-lt"
+      TagSpecifications:
+        - ResourceType: launch-template
+          Tags:  # mandatory Client Profile tags
+            - Key: Name  # Name tag (naming convention)
+              Value: !Sub "${ProjectName}-${Environment}-lt"
+            - Key: Project  # client tag: project
+              Value: !Ref ProjectName
+            - Key: Environment  # client tag: environment
+              Value: !Ref Environment
+            - Key: Owner  # client tag: owner
+              Value: !Ref Owner
+            - Key: CostCenter  # client tag: cost center
+              Value: !Ref CostCenter
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId  # Amazon Linux 2023
+        InstanceType: !Ref InstanceType  # t3.micro by default (Free Tier)
+        CreditSpecification:
+          CpuCredits: !Ref CpuCredits  # burstable credit mode
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn  # attach the instance role
+        SecurityGroupIds:
+          - !Ref AppSg  # use the app firewall
+        MetadataOptions:
+          HttpTokens: required  # IMDSv2 only (blocks SSRF-style metadata theft)
+          HttpEndpoint: enabled  # metadata on (app reads instance ID and AZ)
+          HttpPutResponseHopLimit: 1  # token cannot leave the instance
+        Monitoring:
+          Enabled: true  # 1-minute CloudWatch metrics for faster scaling
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 8  # 8 GB root disk
+              VolumeType: gp3  # cheapest general-purpose SSD
+              Encrypted: true  # encrypted at rest
+              DeleteOnTermination: true  # no orphaned disks
+        TagSpecifications:
+          - ResourceType: volume
+            Tags:  # mandatory Client Profile tags
+              - Key: Name  # Name tag (naming convention)
+                Value: !Sub "${ProjectName}-${Environment}-app-volume"
+              - Key: Project  # client tag: project
+                Value: !Ref ProjectName
+              - Key: Environment  # client tag: environment
+                Value: !Ref Environment
+              - Key: Owner  # client tag: owner
+                Value: !Ref Owner
+              - Key: CostCenter  # client tag: cost center
+                Value: !Ref CostCenter
+        UserData:
+          Fn::Base64: !Sub |  # boot script run on every new server
+            #!/bin/bash
+            # Installs the order app on every new instance (first boot and every scale-out).
+            # Stop on any error and print each command.
+            set -euxo pipefail
+            # Copy all output to a log file (read it via SSM when debugging).
+            exec > >(tee -a /var/log/onward-userdata.log) 2>&1
+
+            # Patch the OS (goes out through the Regional NAT).
+            dnf -y update
+            # Install git and Python.
+            dnf -y install git python3 python3-pip
+
+            # Fresh copy of the app at the pinned Git ref.
+            rm -rf /opt/app-src
+            git clone --depth 1 --branch "${AppRepoRef}" "${AppRepoUrl}" /opt/app-src
+
+            # Isolated Python environment for the app.
+            python3 -m venv /opt/app-venv
+            /opt/app-venv/bin/pip install --upgrade pip
+            # Install Flask, gunicorn and boto3.
+            /opt/app-venv/bin/pip install -r /opt/app-src/app/requirements.txt
+
+            # Unprivileged user that runs the app (not root).
+            useradd --system --no-create-home --shell /sbin/nologin onward || true
+
+            # App settings: name, lab, secret ARN, region, version.
+            cat >/etc/onward.env <<'ENV'
+            STUDENT_NAME="${StudentFullName}"
+            LAB_NAME="Handling Sales Day Demand for the Onward Logistics Order System"
+            TOKEN_SECRET_ID="${LoadTokenSecret}"
+            AWS_REGION="${AWS::Region}"
+            APP_VERSION="${AppRepoRef}"
+            ENV
+
+            # systemd service: starts the app on boot and restarts it if it crashes.
+            cat >/etc/systemd/system/onward.service <<'UNIT'
+            [Unit]
+            # Service name shown in systemctl.
+            Description=Onward Logistics order app
+            # Start only once the network is up.
+            Wants=network-online.target
+            After=network-online.target
+
+            [Service]
+            # Run as the unprivileged user.
+            User=onward
+            # Load the app settings.
+            EnvironmentFile=/etc/onward.env
+            WorkingDirectory=/opt/app-src/app
+            # Production web server on port 8080 (the target group port); one worker keeps orders in one place.
+            ExecStart=/opt/app-venv/bin/gunicorn --bind 0.0.0.0:8080 --workers 1 --threads 8 --timeout 30 app:app
+            # Self-heal: restart 3 seconds after a crash.
+            Restart=always
+            RestartSec=3
+
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+
+            # Load the new unit, then enable it and start it now.
+            systemctl daemon-reload
+            systemctl enable --now onward
+
+            # Wait up to 60 s for /health; fail the boot loudly if the app never comes up.
+            for i in $(seq 1 30); do
+              curl -fs http://127.0.0.1:8080/health && exit 0
+              sleep 2
+            done
+            echo "onward app did not become healthy" >&2
+            exit 1
+
+  # Auto Scaling Group: keeps 2-6 healthy servers across both AZs
+  Asg:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+      - PrivateDefaultRoute
+      - PrivateSubnetAAssoc
+      - PrivateSubnetBAssoc
+    Properties:
+      AutoScalingGroupName: !Sub "${ProjectName}-${Environment}-asg"
+      MinSize: !Ref MinSize  # never fewer than 2 (one per AZ)
+      MaxSize: !Ref MaxSize  # cost cap on a peak day
+      # DesiredCapacity is left out on purpose: it defaults to MinSize at
+      # creation, and stack updates then never reset what target tracking chose.
+      VPCZoneIdentifier:  # spread servers across both private subnets
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate  # build servers from our launch template
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber  # always the newest version
+      TargetGroupARNs:  # register servers with the ALB automatically
+        - !Ref TargetGroup
+      HealthCheckType: ELB  # replace servers the ALB marks unhealthy
+      HealthCheckGracePeriod: 240  # give UserData 4 minutes before judging health
+      DefaultInstanceWarmup: 180  # new servers count toward metrics after 3 minutes
+      CapacityRebalance: true  # rebalance proactively across AZs
+      MetricsCollection:
+        - Granularity: 1Minute  # group metrics for the demo dashboards
+      Tags:  # mandatory Client Profile tags
+        - Key: Name  # Name tag (naming convention)
+          Value: !Sub "${ProjectName}-${Environment}-app"
+          PropagateAtLaunch: true  # copy tag to every instance
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+          PropagateAtLaunch: true  # copy tag to every instance
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true  # copy tag to every instance
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+          PropagateAtLaunch: true  # copy tag to every instance
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+          PropagateAtLaunch: true  # copy tag to every instance
+    UpdatePolicy:
+      AutoScalingRollingUpdate:  # replace servers one at a time on template changes
+        MinInstancesInService: 1  # keep at least one serving
+        MaxBatchSize: 1  # one server at a time
+        PauseTime: PT4M  # wait between batches
+        SuspendProcesses:  # do not scale while a rolling update runs
+          - AlarmNotification
+          - ScheduledActions
+
+  # Target tracking: add/remove servers to hold average CPU at TargetCpu
+  CpuScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref Asg  # the group this policy controls
+      PolicyType: TargetTrackingScaling  # scale out and in automatically
+      EstimatedInstanceWarmup: 180  # ignore a new server's CPU for 3 minutes
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization  # average CPU of the whole group
+        TargetValue: !Ref TargetCpu  # keep it at 50%
+        DisableScaleIn: false  # allow scale-in after the rush
+
+Outputs:
+  AlbDnsName:
+    Description: Single public entry point (open in a browser)
+    Value: !Sub "http://${Alb.DNSName}"
+  AsgName:
+    Description: Auto Scaling Group name
+    Value: !Ref Asg
+  TargetGroupArn:
+    Description: Target group ARN (use for describe-target-health)
+    Value: !Ref TargetGroup
+  TokenSecretArn:
+    Description: Secret holding the load-test token (read it with the AWS CLI, never commit it)
+    Value: !Ref LoadTokenSecret
+  VpcId:
+    Description: VPC ID
+    Value: !Ref Vpc
+  NatGatewayId:
+    Description: Regional NAT Gateway ID
+    Value: !Ref RegionalNat
+  PrivateRouteTableId:
+    Description: Private route table (0.0.0.0/0 to the Regional NAT)
+    Value: !Ref PrivateRt
