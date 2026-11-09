@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ lab }}</title>
+  <style>
+    :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#5b6475; --accent:#ff9900; --line:#e3e6ec; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+    header { background:#232f3e; color:#fff; padding:20px 16px; }
+    header h1 { margin:0 0 6px; font-size:1.35rem; }
+    header p { margin:0; color:#d5dbe5; }
+    main { max-width:960px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+    .card h2 { margin:0 0 12px; font-size:1.05rem; }
+    .server { border-left:6px solid var(--accent); }
+    dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0; }
+    dt { color:var(--muted); } dd { margin:0; font-family: ui-monospace, Consolas, monospace; word-break:break-all; }
+    .row { display:flex; flex-wrap:wrap; gap:8px; }
+    input { padding:8px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+    button { padding:8px 14px; border:0; border-radius:6px; background:#232f3e; color:#fff; font:inherit; cursor:pointer; }
+    button.warn { background:var(--accent); color:#111; }
+    pre { background:#0f1622; color:#cfe3ff; padding:12px; border-radius:8px; overflow:auto; max-height:260px; margin:12px 0 0; font-size:.85rem; }
+    .muted { color:var(--muted); font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ lab }}</h1>
+    <p>Built by <strong>{{ student }}</strong></p>
+  </header>
+  <main>
+    <section class="card server">
+      <h2>This page was served by</h2>
+      <dl>
+        <dt>Instance ID</dt><dd id="iid">{{ server.instance_id }}</dd>
+        <dt>Availability Zone</dt><dd id="az">{{ server.availability_zone }}</dd>
+        <dt>Private IP</dt><dd>{{ server.private_ip }}</dd>
+        <dt>Load (1 min)</dt><dd>{{ server.load_1m }}</dd>
+        <dt>Burning (s left)</dt><dd>{{ server.burning_seconds_left }}</dd>
+        <dt>App version</dt><dd>{{ server.version }}</dd>
+        <dt>Rendered at</dt><dd>{{ server.time }}</dd>
+      </dl>
+      <p class="muted">Refresh the page: the load balancer shares requests, so the instance and AZ change.</p>
+      <div class="row">
+        <button onclick="sample()">Sample 20 requests</button>
+      </div>
+      <pre id="sampleOut" hidden></pre>
+    </section>
+
+    <section class="card">
+      <h2>Place an order</h2>
+      <div class="row">
+        <input id="item" placeholder="item, e.g. parcel-box" maxlength="80">
+        <input id="qty" type="number" value="1" min="1" max="1000" style="width:90px">
+        <button onclick="order()">Submit order</button>
+        <button onclick="listOrders()">List orders on the answering server</button>
+      </div>
+      <pre id="orderOut" hidden></pre>
+    </section>
+
+    <section class="card">
+      <h2>Sales day simulator (protected)</h2>
+      {% if burn_enabled %}
+      <p class="muted">Drives every instance's CPU to 100% for the chosen time so target tracking scales out. Needs the load token held in Secrets Manager.</p>
+      <div class="row">
+        <input id="token" type="password" placeholder="load token" autocomplete="off">
+        <input id="secs" type="number" value="300" min="10" max="600" style="width:90px"> seconds
+        <button class="warn" onclick="spike()">Generate load</button>
+      </div>
+      {% else %}
+      <p class="muted">Load generation is disabled: the load token could not be read on this server.</p>
+      {% endif %}
+      <pre id="loadOut" hidden></pre>
+    </section>
+  </main>
+
+  <script>
+    /** Show a result (text or pretty JSON) in the given <pre> box. */
+    const show = (id, data) => {
+      const el = document.getElementById(id);                                          // target box
+      el.hidden = false;                                                               // make it visible
+      el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2); // pretty print
+    };
+
+    /** Send the order form to POST /orders and show the stored order. */
+    async function order() {
+      const r = await fetch('/orders', {
+        method: 'POST',                                                 // create an order
+        headers: { 'Content-Type': 'application/json' },                // body is JSON
+        body: JSON.stringify({ item: document.getElementById('item').value, qty: +document.getElementById('qty').value }),
+      });
+      show('orderOut', await r.json());                                 // order or validation error
+    }
+
+    /** Show the orders kept by whichever server answers. */
+    async function listOrders() {
+      const r = await fetch('/orders');                                 // GET /orders
+      show('orderOut', await r.json());
+    }
+
+    /** Call /whoami 20 times and count answers per server, proving load balancing. */
+    async function sample() {
+      const counts = {};                                                // "instance (AZ)" -> hits
+      for (let i = 0; i < 20; i++) {
+        try {
+          const r = await fetch('/whoami', { cache: 'no-store' });      // bypass browser cache
+          const j = await r.json();
+          const key = j.instance_id + ' (' + j.availability_zone + ')'; // which server answered
+          counts[key] = (counts[key] || 0) + 1;                         // tally it
+        } catch (e) { counts.error = (counts.error || 0) + 1; }         // count failures too
+      }
+      show('sampleOut', counts);
+    }
+
+    /** Fire many /burn calls in parallel so the ALB reaches every server; each burns once and ignores repeats. */
+    async function spike() {
+      const token = document.getElementById('token').value;             // load token from Secrets Manager
+      const secs = document.getElementById('secs').value;               // burn duration
+      const hits = [];
+      for (let i = 0; i < 24; i++) {                                    // 24 requests spread round robin
+        hits.push(fetch('/burn?seconds=' + encodeURIComponent(secs), { method: 'POST', headers: { 'X-Load-Token': token } })
+          .then(r => r.ok ? r.json() : { error: 'HTTP ' + r.status })   // 403 = wrong token
+          .catch(e => ({ error: String(e) })));                         // network error
+      }
+      const results = await Promise.all(hits);                          // wait for all
+      const byServer = {};                                              // one line per server
+      results.forEach(r => {
+        const k = r.instance_id ? r.instance_id + ' (' + r.availability_zone + ')' : (r.error || 'unknown');
+        byServer[k] = r.status || r.error;                              // started / already-burning / error
+      });
+      show('loadOut', byServer);
+    }
+  </script>
+</body>
+</html>
