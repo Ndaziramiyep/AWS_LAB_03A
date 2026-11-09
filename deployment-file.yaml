@@ -1,0 +1,22 @@
+# CloudFormation Git sync deployment file: every push to main redeploys the stack with these settings.
+template-file-path: infra/template.yaml          # which template Git sync deploys
+parameters:                                      # values passed to the template's Parameters
+  ProjectName: onward-logistics                  # naming convention: <project>-<env>-<resource>
+  Environment: lab                               # environment part of every name
+  Owner: patrick.ndaziramiye                     # Owner tag
+  CostCenter: training                           # CostCenter tag
+  StudentFullName: "Patrick Ndaziramiye"         # shown on every page
+  AppRepoUrl: "https://github.com/Ndaziramiyep/AWS_LAB_03A.git"  # public repo the servers clone
+  AppRepoRef: "v1.0.0"                           # pinned release tag the servers deploy
+  InstanceType: t3.micro                         # Free Tier eligible burstable instance
+  CpuCredits: unlimited                          # full CPU during the spike demo
+  MinSize: "2"                                   # one server per AZ at minimum
+  MaxSize: "6"                                   # cost ceiling on a peak day
+  TargetCpu: "50"                                # target tracking keeps average CPU here
+tags:                                            # stack tags, copied to every taggable resource
+  # Replace or extend with the mandatory tags from the Client Profile.
+  Project: onward-logistics                      # which project the resource belongs to
+  Environment: lab                               # lab / dev / test / prod
+  Owner: patrick.ndaziramiye                     # who is responsible
+  CostCenter: training                           # who pays
+  ManagedBy: cloudformation-gitsync              # how it was created (do not edit by hand)
