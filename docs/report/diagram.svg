@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 720" width="1200" height="720" font-family="Helvetica, Arial, sans-serif">
+{{ICONS}}
+<style>
+  .t { font-size: 11px; fill: #232F3E; }
+  .tb { font-size: 11.5px; font-weight: 700; fill: #232F3E; }
+  .ts { font-size: 9.5px; fill: #545B64; }
+  .grp { font-size: 12px; font-weight: 700; }
+  .rt { font-size: 9.5px; fill: #5A30B5; font-weight: 700; }
+  .pill { font-size: 9.5px; font-weight: 700; fill: #BD0816; }
+  .badge { font-size: 12px; font-weight: 700; fill: #232F3E; }
+</style>
+<rect width="1200" height="720" fill="#fff"/>
+
+<!-- ===== Groups ===== -->
+<!-- AWS Cloud -->
+<rect x="100" y="12" width="1000" height="696" fill="none" stroke="#232F3E" stroke-width="1.5"/>
+<use href="#grp-cloud" x="100" y="12" width="26" height="26"/>
+<text x="134" y="30" class="grp" fill="#232F3E">AWS Cloud</text>
+<!-- Region -->
+<rect x="118" y="48" width="964" height="646" fill="none" stroke="#00A4A6" stroke-width="1.3" stroke-dasharray="7 4"/>
+<use href="#grp-region" x="118" y="48" width="26" height="26"/>
+<text x="152" y="66" class="grp" fill="#007D7F">Region: eu-west-1 (Ireland)</text>
+<!-- VPC -->
+<rect x="205" y="84" width="660" height="596" fill="none" stroke="#8C4FFF" stroke-width="1.6"/>
+<use href="#grp-vpc" x="205" y="84" width="26" height="26"/>
+<text x="239" y="102" class="grp" fill="#5A30B5">VPC  10.0.0.0/16</text>
+<!-- Availability Zones -->
+<rect x="225" y="150" width="305" height="515" fill="none" stroke="#00A4A6" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="235" y="167" class="grp" fill="#007D7F" font-size="11">Availability Zone A</text>
+<rect x="545" y="150" width="305" height="515" fill="none" stroke="#00A4A6" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="555" y="167" class="grp" fill="#007D7F" font-size="11">Availability Zone B</text>
+<!-- Public subnets -->
+<rect x="240" y="178" width="275" height="150" fill="#F2F6E8" stroke="#7AA116" stroke-width="1.3"/>
+<use href="#grp-public" x="240" y="178" width="22" height="22"/>
+<text x="268" y="193" class="grp" fill="#3F6B0A" font-size="11">Public subnet A · 10.0.0.0/24</text>
+<rect x="560" y="178" width="275" height="150" fill="#F2F6E8" stroke="#7AA116" stroke-width="1.3"/>
+<use href="#grp-public" x="560" y="178" width="22" height="22"/>
+<text x="588" y="193" class="grp" fill="#3F6B0A" font-size="11">Public subnet B · 10.0.1.0/24</text>
+<!-- Private subnets -->
+<rect x="240" y="350" width="275" height="300" fill="#E6F6F7" stroke="#00A4A6" stroke-width="1.3"/>
+<use href="#grp-private" x="240" y="350" width="22" height="22"/>
+<text x="268" y="365" class="grp" fill="#007D7F" font-size="11">Private subnet A · 10.0.10.0/24</text>
+<rect x="560" y="350" width="275" height="300" fill="#E6F6F7" stroke="#00A4A6" stroke-width="1.3"/>
+<use href="#grp-private" x="560" y="350" width="22" height="22"/>
+<text x="588" y="365" class="grp" fill="#007D7F" font-size="11">Private subnet B · 10.0.11.0/24</text>
+<!-- Auto Scaling group -->
+<rect x="255" y="395" width="565" height="200" fill="none" stroke="#ED7100" stroke-width="1.5" stroke-dasharray="7 4"/>
+
+<!-- ===== Connectors (drawn under labels) ===== -->
+<!-- 1: users -> IGW -> ALB -->
+<path d="M72 254H179" stroke="#232F3E" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+<path d="M229 254H511" stroke="#232F3E" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+<!-- 2: ALB -> EC2 in both AZs -->
+<path d="M537 278V440H384V460" stroke="#232F3E" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+<path d="M537 440H704V460" stroke="#232F3E" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+<!-- 3: ASG -> Regional NAT -> IGW (outbound only) -->
+<path d="M820 560H855V143H607V139" stroke="#3F8624" stroke-width="1.8" fill="none" stroke-dasharray="6 3" marker-end="url(#arr-green)"/>
+<path d="M585 116H205V228" stroke="#3F8624" stroke-width="1.8" fill="none" stroke-dasharray="6 3" marker-end="url(#arr-green)"/>
+<!-- Control plane -->
+<path d="M951 132H870V420H824" stroke="#E7157B" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#arr-pink)"/>
+<path d="M951 237H885V505H824" stroke="#E7157B" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#arr-pink)"/>
+<path d="M1126 582H999" stroke="#2E27AD" stroke-width="1.6" fill="none" marker-end="url(#arr-blue)"/>
+<path d="M951 582H869" stroke="#2E27AD" stroke-width="1.6" fill="none" stroke-dasharray="6 3" marker-end="url(#arr-blue)"/>
+
+<!-- ===== Nodes ===== -->
+<!-- Users -->
+<use href="#i-users" x="24" y="230" width="48" height="48"/>
+<text x="48" y="294" class="tb" text-anchor="middle">Users &amp;</text>
+<text x="48" y="307" class="tb" text-anchor="middle">merchants</text>
+
+<!-- Internet Gateway -->
+<use href="#i-igw" x="181" y="230" width="48" height="48"/>
+<rect x="150" y="283" width="84" height="26" fill="#fff"/>
+<text x="192" y="294" class="tb" text-anchor="middle">Internet</text>
+<text x="192" y="306" class="tb" text-anchor="middle">Gateway</text>
+
+<!-- Regional NAT Gateway -->
+<use href="#i-nat" x="587" y="96" width="40" height="40"/>
+<text x="634" y="111" class="tb">Regional NAT Gateway</text>
+<text x="634" y="125" class="ts">VPC-level · auto-expands to each AZ</text>
+
+<!-- ALB -->
+<rect x="505" y="222" width="64" height="64" fill="none" stroke="#DD344C" stroke-width="1.2" stroke-dasharray="4 3"/>
+<use href="#i-alb" x="513" y="230" width="48" height="48"/>
+<rect x="470" y="288" width="134" height="26" fill="#fff" fill-opacity=".92"/>
+<text x="537" y="299" class="tb" text-anchor="middle">Application Load Balancer</text>
+<text x="537" y="311" class="ts" text-anchor="middle">internet-facing · HTTP :80</text>
+<rect x="472" y="315" width="130" height="15" rx="7.5" fill="#FDECEE" stroke="#DD344C" stroke-width=".8"/>
+<text x="537" y="326" class="pill" text-anchor="middle">ALB SG · 80 ← 0.0.0.0/0</text>
+
+<!-- Route table notes -->
+<use href="#i-rt" x="250" y="306" width="14" height="14"/>
+<text x="268" y="317" class="rt">0.0.0.0/0 → IGW</text>
+<use href="#i-rt" x="738" y="306" width="14" height="14"/>
+<text x="756" y="317" class="rt">0.0.0.0/0 → IGW</text>
+<use href="#i-rt" x="250" y="627" width="14" height="14"/>
+<text x="268" y="638" class="rt">0.0.0.0/0 → Regional NAT</text>
+<use href="#i-rt" x="570" y="627" width="14" height="14"/>
+<text x="588" y="638" class="rt">0.0.0.0/0 → Regional NAT</text>
+
+<!-- ASG label -->
+<rect x="256" y="396" width="440" height="22" fill="#E6F6F7"/>
+<use href="#grp-asg" x="255" y="395" width="22" height="22"/>
+<text x="283" y="410" class="grp" fill="#B35900" font-size="11">Auto Scaling group · min 2 / max 6 · target tracking CPU 50%</text>
+
+<!-- EC2 AZ-A -->
+<rect x="348" y="454" width="72" height="64" fill="none" stroke="#DD344C" stroke-width="1.2" stroke-dasharray="4 3"/>
+<use href="#i-ec2" x="360" y="462" width="48" height="48"/>
+<text x="384" y="532" class="tb" text-anchor="middle">EC2 · t3.micro</text>
+<text x="384" y="545" class="ts" text-anchor="middle">AL2023 · Flask app :8080</text>
+<rect x="315" y="551" width="138" height="15" rx="7.5" fill="#FDECEE" stroke="#DD344C" stroke-width=".8"/>
+<text x="384" y="562" class="pill" text-anchor="middle">App SG · 8080 ← ALB SG only</text>
+<use href="#i-ec2" x="452" y="468" width="36" height="36" opacity=".35"/>
+<text x="470" y="518" class="ts" text-anchor="middle">scale-out</text>
+
+<!-- EC2 AZ-B -->
+<rect x="668" y="454" width="72" height="64" fill="none" stroke="#DD344C" stroke-width="1.2" stroke-dasharray="4 3"/>
+<use href="#i-ec2" x="680" y="462" width="48" height="48"/>
+<text x="704" y="532" class="tb" text-anchor="middle">EC2 · t3.micro</text>
+<text x="704" y="545" class="ts" text-anchor="middle">AL2023 · Flask app :8080</text>
+<rect x="635" y="551" width="138" height="15" rx="7.5" fill="#FDECEE" stroke="#DD344C" stroke-width=".8"/>
+<text x="704" y="562" class="pill" text-anchor="middle">App SG · 8080 ← ALB SG only</text>
+<use href="#i-ec2" x="770" y="468" width="36" height="36" opacity=".35"/>
+<text x="788" y="518" class="ts" text-anchor="middle">scale-out</text>
+<text x="537" y="588" class="ts" text-anchor="middle" font-style="italic">no public IPs · no key pair · no port 22 · IMDSv2</text>
+
+<!-- Regional services column -->
+<text x="975" y="96" class="ts" text-anchor="middle" font-weight="700" letter-spacing=".5">REGIONAL SERVICES</text>
+<use href="#i-cw" x="951" y="110" width="44" height="44"/>
+<text x="973" y="168" class="tb" text-anchor="middle">Amazon CloudWatch</text>
+<text x="973" y="181" class="ts" text-anchor="middle">CPU metric → scale out / in</text>
+<use href="#i-ssm" x="951" y="215" width="44" height="44"/>
+<text x="973" y="273" class="tb" text-anchor="middle">Systems Manager</text>
+<text x="973" y="286" class="ts" text-anchor="middle">Session Manager · Run Command</text>
+<use href="#i-secrets" x="951" y="320" width="44" height="44"/>
+<text x="973" y="378" class="tb" text-anchor="middle">Secrets Manager</text>
+<text x="973" y="391" class="ts" text-anchor="middle">load-test token</text>
+<use href="#i-iam" x="951" y="425" width="44" height="44"/>
+<text x="973" y="483" class="tb" text-anchor="middle">AWS IAM</text>
+<text x="973" y="496" class="ts" text-anchor="middle">instance role · managed policies</text>
+<use href="#i-cfn" x="951" y="560" width="44" height="44"/>
+<text x="973" y="618" class="tb" text-anchor="middle">AWS CloudFormation</text>
+<text x="973" y="631" class="ts" text-anchor="middle">stack: all resources as code</text>
+<text x="908" y="576" class="ts" text-anchor="middle" fill="#2E27AD">deploys</text>
+<text x="905" y="400" class="ts" text-anchor="middle" fill="#B0084D">target</text>
+<text x="905" y="413" class="ts" text-anchor="middle" fill="#B0084D">tracking</text>
+<text x="912" y="520" class="ts" text-anchor="middle" fill="#B0084D">SSM agent</text>
+
+<!-- Git sync / repo -->
+<use href="#i-sync" x="1040" y="566" width="32" height="32"/>
+<text x="1056" y="560" class="ts" text-anchor="middle" font-weight="700" fill="#2E27AD">Git sync</text>
+<use href="#i-git" x="1128" y="560" width="44" height="44"/>
+<text x="1150" y="618" class="tb" text-anchor="middle">GitHub repo</text>
+<text x="1150" y="631" class="ts" text-anchor="middle">main · v1.0.0</text>
+
+<!-- ===== Step badges ===== -->
+<g>
+  <circle cx="150" cy="254" r="10" fill="#FF9900" stroke="#fff" stroke-width="1.5"/><text x="150" y="258" class="badge" text-anchor="middle">1</text>
+  <circle cx="537" cy="339" r="10" fill="#FF9900" stroke="#fff" stroke-width="1.5"/><text x="537" y="343" class="badge" text-anchor="middle">2</text>
+  <circle cx="420" cy="116" r="10" fill="#7AA116" stroke="#fff" stroke-width="1.5"/><text x="420" y="120" class="badge" text-anchor="middle" fill="#fff">3</text>
+  <circle cx="855" cy="340" r="10" fill="#7AA116" stroke="#fff" stroke-width="1.5"/><text x="855" y="344" class="badge" text-anchor="middle" fill="#fff">3</text>
+</g>
+</svg>
