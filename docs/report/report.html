@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Discovery Report – Onward Logistics Sales Day Demand</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm;
+    @bottom-left { content: "Onward Logistics · Sales Day Demand · Discovery Report"; font: 8pt Helvetica, Arial, sans-serif; color: #687078; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt Helvetica, Arial, sans-serif; color: #687078; } }
+  @page cover { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+  @page wide { size: A4 landscape; margin: 12mm 12mm 14mm; }
+  :root { --navy:#232F3E; --orange:#FF9900; --ink:#16191F; --muted:#545B64; --line:#D5DBDB; --soft:#F2F3F3;
+          --compute:#ED7100; --net:#8C4FFF; --sec:#DD344C; --mgmt:#E7157B; --cost:#7AA116; --teal:#00A4A6; --dev:#2E27AD; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font: 9.6pt/1.5 Helvetica, Arial, sans-serif; color: var(--ink); background: #fff; }
+  svg.ico { width: 30px; height: 30px; flex: none; }
+  svg.ico.sm { width: 22px; height: 22px; }
+  svg.ico.lg { width: 40px; height: 40px; }
+  h1, h2, h3 { color: var(--navy); margin: 0; }
+  p { margin: 0 0 7px; }
+  .section { break-before: page; }
+  .part { display: flex; align-items: center; gap: 10px; background: var(--navy); color: #fff; padding: 9px 14px; border-radius: 4px; margin-bottom: 14px; }
+  .part b { color: var(--orange); font-size: 9pt; letter-spacing: 1.5px; }
+  .part span { font-size: 14pt; font-weight: 700; }
+  h2 { display: flex; align-items: center; gap: 9px; font-size: 13pt; margin: 16px 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--orange); }
+  h2 .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--orange); color: var(--navy); font-size: 10pt; }
+  h3 { font-size: 10.2pt; margin-bottom: 3px; }
+  .lead { font-size: 10.4pt; color: #2b3240; }
+  .muted { color: var(--muted); }
+
+  /* cover */
+  .cover { page: cover; height: 297mm; overflow: hidden; display: flex; flex-direction: column; }
+  .cover-top { background: var(--navy); color: #fff; padding: 15mm 18mm 10mm; position: relative; }
+  .cover-top:after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: linear-gradient(90deg, var(--orange), var(--mgmt), var(--net), var(--teal), var(--cost)); }
+  .eyebrow { color: var(--orange); font-weight: 700; letter-spacing: 2px; font-size: 9pt; }
+  .cover h1 { color: #fff; font-size: 25pt; line-height: 1.15; margin: 8px 0 8px; }
+  .cover .sub { color: #D5DBDB; font-size: 12pt; }
+  .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 18px; margin-top: 18px; font-size: 9pt; }
+  .meta div { border-left: 3px solid var(--orange); padding-left: 8px; }
+  .meta small { display: block; color: #AAB7B8; text-transform: uppercase; letter-spacing: 1px; font-size: 7pt; }
+  .strip { display: flex; gap: 6px; flex-wrap: nowrap; margin-top: 16px; }
+  .strip figure { margin: 0; text-align: center; width: 59px; font-size: 6.8pt; color: #D5DBDB; }
+  .strip svg { width: 36px; height: 36px; display: block; margin: 0 auto 4px; }
+  .cover-body { padding: 7mm 18mm 0; flex: 1; }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 4px 0 14px; }
+  .kpi { border: 1px solid var(--line); border-top: 4px solid var(--c, var(--orange)); border-radius: 4px; padding: 8px 9px; }
+  .kpi b { display: block; font-size: 17pt; color: var(--navy); line-height: 1.1; }
+  .kpi span { font-size: 7.8pt; color: var(--muted); }
+  .summary { background: var(--soft); border-left: 4px solid var(--orange); padding: 10px 13px; border-radius: 0 4px 4px 0; }
+  .toc { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin-top: 12px; font-size: 9.2pt; }
+  .toc div { display: flex; justify-content: space-between; border-bottom: 1px dotted #AAB7B8; padding: 2px 0; }
+  .toc b { color: var(--orange); margin-right: 6px; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-size: 8.8pt; margin: 4px 0 8px; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 6px 8px; font-weight: 700; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:nth-child(even) td { background: #FAFAFA; }
+  tr { break-inside: avoid; }
+  td.svc { font-weight: 700; white-space: nowrap; }
+  td.svc svg { vertical-align: middle; margin-right: 7px; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 7.6pt; font-weight: 700; white-space: nowrap; }
+  .chip.yes { background: #E9F3DC; color: #3F6B0A; border: 1px solid #7AA116; }
+  .chip.part { background: #FFF2DE; color: #9A4B00; border: 1px solid #FF9900; }
+  .chip.no { background: #FDECEE; color: #A30D1F; border: 1px solid #DD344C; }
+  tr.chosen td { background: #FFF8EC !important; }
+
+  /* cards */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .card { display: flex; gap: 10px; border: 1px solid var(--line); border-left: 4px solid var(--c, var(--orange)); border-radius: 4px; padding: 9px 10px; break-inside: avoid; }
+  .card p { margin: 0; font-size: 8.7pt; color: #2b3240; }
+  .callout { display: flex; gap: 12px; align-items: flex-start; background: #FFF8EC; border: 1px solid #FFD699; border-radius: 4px; padding: 10px 12px; margin: 8px 0; }
+  .callout.red { background: #FDF1F2; border-color: #F5B8C0; }
+
+  /* demand chart */
+  .chart { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px 4px; margin: 8px 0 4px; }
+
+  /* diagram page */
+  .wide { page: wide; break-before: page; }
+  .wide .diagram { border: 1px solid var(--line); border-radius: 4px; padding: 4px; }
+  .wide .diagram svg { height: 128mm; width: auto; max-width: 100%; display: block; margin: 0 auto; }
+  .legend { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 10px; margin-top: 6px; font-size: 8pt; }
+  .legend h3 { font-size: 8.6pt; margin-bottom: 3px; }
+  .legend .row { display: flex; align-items: center; gap: 7px; margin: 2px 0; }
+  .sw { width: 26px; height: 13px; flex: none; border-radius: 2px; }
+  .flow { display: flex; gap: 6px; align-items: baseline; margin: 2px 0; }
+  .dot { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: 7.5pt; font-weight: 700; flex: none; }
+
+  /* roadmap */
+  .timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 6px; }
+  .step { border-top: 4px solid var(--c); background: var(--soft); border-radius: 0 0 4px 4px; padding: 8px 9px; font-size: 8.4pt; break-inside: avoid; }
+  .step b { display: block; color: var(--navy); margin-bottom: 2px; }
+  ul.tight { margin: 4px 0 6px; padding-left: 17px; } ul.tight li { margin: 2px 0; }
+  .sources a { color: #0972D3; text-decoration: none; }
+  .sources li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">{{ICONS}}</svg>
+
+<!-- ================= COVER ================= -->
+<section class="cover">
+  <div class="cover-top">
+    <div class="eyebrow">STAGE 1 · DISCOVERY REPORT</div>
+    <h1>Handling Sales Day Demand for the<br>Onward Logistics Order System</h1>
+    <div class="sub">Elastic, highly available and private order platform on AWS: findings, options and business value</div>
+    <div class="meta">
+      <div><small>Client</small>Onward Logistics</div>
+      <div><small>Prepared by</small>Patrick Ndaziramiye</div>
+      <div><small>Date</small>9 November 2026</div>
+      <div><small>Module</small>Compute &amp; Delivery on AWS · Week 3</div>
+      <div><small>AWS Region</small>eu-west-1 (Ireland)</div>
+      <div><small>Delivery</small>CloudFormation + Git sync</div>
+    </div>
+    <div class="strip">
+      <figure><svg><use href="#i-alb"/></svg>Elastic Load Balancing</figure>
+      <figure><svg><use href="#i-ec2"/></svg>Amazon EC2</figure>
+      <figure><svg><use href="#i-asg"/></svg>EC2 Auto Scaling</figure>
+      <figure><svg><use href="#i-vpc"/></svg>Amazon VPC</figure>
+      <figure><svg><use href="#i-nat"/></svg>Regional NAT Gateway</figure>
+      <figure><svg><use href="#i-cw"/></svg>CloudWatch</figure>
+      <figure><svg><use href="#i-ssm"/></svg>Systems Manager</figure>
+      <figure><svg><use href="#i-secrets"/></svg>Secrets Manager</figure>
+      <figure><svg><use href="#i-iam"/></svg>IAM</figure>
+      <figure><svg><use href="#i-cfn"/></svg>CloudFormation</figure>
+    </div>
+  </div>
+  <div class="cover-body">
+    <h2 style="margin-top:4px">At a glance</h2>
+    <div class="kpis">
+      <div class="kpi" style="--c:var(--sec)"><b>3×</b><span>order traffic on sales days, at unpredictable times</span></div>
+      <div class="kpi" style="--c:var(--compute)"><b>2 → 6</b><span>servers, scaled automatically on CPU (target 50%)</span></div>
+      <div class="kpi" style="--c:var(--teal)"><b>2 AZs</b><span>survives the loss of a server or a whole data centre</span></div>
+      <div class="kpi" style="--c:var(--net)"><b>1</b><span>public entry point; every server is private</span></div>
+      <div class="kpi" style="--c:var(--cost)"><b>≈ $3.75</b><span>per quiet day; a sales day adds ≈ $1.60</span></div>
+    </div>
+    <div class="summary">
+      <h3>Executive summary</h3>
+      <p>On sales days, order traffic reaches about three times a normal day, at times nobody can schedule. Today's fixed fleet either sits mostly idle or slows down at the peak. We recommend one public <b>Application Load Balancer</b> in front of an <b>EC2 Auto Scaling group</b> in <b>private subnets across two Availability Zones</b>. A CPU target-tracking policy adds servers during the rush and removes them afterwards.</p>
+      <p>A <b>Regional NAT Gateway</b> gives the servers outbound-only access to updates. Admin access goes through <b>Systems Manager</b>, so no admin ports are open. The whole environment is defined in <b>CloudFormation</b> and deployed from Git through <b>Git sync</b>, so it can be rebuilt from the repository at any time.</p>
+    </div>
+    <h2>Contents</h2>
+    <div class="toc">
+      <div><span><b>A1</b>The problem</span><span>2</span></div>
+      <div><span><b>B1</b>Chosen approach</span><span>5</span></div>
+      <div><span><b>A2</b>Common solutions compared</span><span>2</span></div>
+      <div><span><b>B2</b>Services and why</span><span>5</span></div>
+      <div><span><b>A3</b>Impact of doing nothing</span><span>3</span></div>
+      <div><span><b>B3</b>Who benefits</span><span>6</span></div>
+      <div><span><b>A4</b>Security and resilience patterns</span><span>3</span></div>
+      <div><span><b>B4</b>Cost: quiet vs sales day</span><span>7</span></div>
+      <div><span><b>A5</b>Sources</span><span>3</span></div>
+      <div><span><b>B5</b>Trade-offs and roadmap</span><span>7</span></div>
+      <div><span><b>&nbsp;&nbsp;&nbsp;</b>Target architecture diagram</span><span>4</span></div>
+      <div><span><b>&nbsp;&nbsp;&nbsp;</b>Requirements traceability</span><span>6</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PART A ================= -->
+<section class="section">
+  <div class="part"><b>PART A</b><span>What we found</span></div>
+
+  <h2><span class="num">1</span>The problem</h2>
+  <p class="lead">Onward Logistics runs its order system on a fixed set of servers. On sales days demand jumps to roughly <b>three times</b> normal, and nobody can predict exactly when it will start.</p>
+  <div class="chart">
+    <svg viewBox="0 0 700 150" width="100%" font-family="Helvetica, Arial" font-size="9">
+      <line x1="40" y1="125" x2="690" y2="125" stroke="#AAB7B8"/><line x1="40" y1="10" x2="40" y2="125" stroke="#AAB7B8"/>
+      <text x="8" y="16" fill="#545B64">load</text><text x="660" y="140" fill="#545B64">time</text>
+      <!-- fixed peak fleet -->
+      <line x1="40" y1="30" x2="690" y2="30" stroke="#DD344C" stroke-dasharray="6 4" stroke-width="1.5"/>
+      <text x="470" y="24" fill="#BD0816" font-weight="700">fixed peak fleet: paid for 24/7</text>
+      <!-- normal fleet -->
+      <line x1="40" y1="92" x2="690" y2="92" stroke="#545B64" stroke-dasharray="3 3"/>
+      <text x="560" y="86" fill="#545B64">fixed normal fleet</text>
+      <!-- auto scaling capacity (steps) -->
+      <path d="M40 92H250V70H275V48H300V36H430V58H460V80H490V92H690" fill="none" stroke="#ED7100" stroke-width="2.2"/>
+      <!-- demand -->
+      <path d="M40 108C120 100 180 112 240 100S290 40 330 38 400 44 420 50 470 100 520 104 640 108 690 104" fill="#FF9900" fill-opacity=".14" stroke="#FF9900" stroke-width="1.8"/>
+      <rect x="292" y="95" width="0" height="0"/>
+      <text x="250" y="140" fill="#545B64">sales-day rush (≈3×, timing unknown)</text>
+      <rect x="48" y="12" width="10" height="3" fill="#FF9900"/><text x="62" y="16" fill="#232F3E">demand</text>
+      <rect x="110" y="12" width="10" height="3" fill="#ED7100"/><text x="124" y="16" fill="#232F3E">auto-scaled capacity</text>
+    </svg>
+  </div>
+  <div class="callout red">
+    <svg class="ico"><use href="#i-alert"/></svg>
+    <div><h3>The dilemma today</h3><p style="margin:0">Size for the peak and pay for idle servers about 95% of the month, or size for a normal day and slow down or fail exactly when merchants need the system most. One server or Availability Zone failure can also take orders offline.</p></div>
+  </div>
+
+  <h2><span class="num">2</span>Common solutions compared</h2>
+  <table>
+    <thead><tr><th style="width:27%">Approach</th><th>How it works</th><th style="width:31%">Fit for Onward Logistics</th></tr></thead>
+    <tbody>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-ec2"/></svg>Over-provision for peak</td><td>Run peak capacity all the time</td><td><span class="chip no">Rejected</span> pays for ~3× capacity most of the month</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-iam"/></svg>Manual scaling</td><td>Operators add servers when they see load</td><td><span class="chip no">Rejected</span> slow, error-prone, needs someone on call</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-clock"/></svg>Scheduled scaling</td><td>Add capacity at fixed times</td><td><span class="chip part">Complement</span> sale timing is unpredictable</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-chart"/></svg>Step scaling</td><td>Alarms with hand-tuned scaling steps</td><td><span class="chip part">Not needed</span> more to tune than target tracking</td></tr>
+      <tr class="chosen"><td class="svc"><svg class="ico sm"><use href="#i-asg"/></svg>Target-tracking auto scaling</td><td>Keep average CPU at a target; scale out <i>and</i> in automatically</td><td><span class="chip yes">Chosen</span> hands-off, little tuning, cost follows demand</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-sync"/></svg>Serverless (Lambda / Fargate)</td><td>The platform scales per request or task</td><td><span class="chip part">Future</span> brief requires EC2 behind a load balancer</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-cfn"/></svg>Managed PaaS (Beanstalk)</td><td>Platform-managed fleet</td><td><span class="chip part">Future</span> hides network controls the client wants</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-alb"/></svg>CDN / caching in front</td><td>Serve static content from the edge</td><td><span class="chip part">Complement</span> does not help order writes</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="section">
+  <h2><span class="num">3</span>Impact of doing nothing</h2>
+  <div class="grid2">
+    <div class="card" style="--c:var(--sec)"><svg class="ico"><use href="#i-alert"/></svg><div><h3>Lost orders and merchants</h3><p>Slow pages and errors at the peak turn away customers exactly when demand and revenue are highest.</p></div></div>
+    <div class="card" style="--c:var(--sec)"><svg class="ico"><use href="#i-users"/></svg><div><h3>Damaged trust</h3><p>Merchants who rely on Onward on their busiest day move to competitors after one bad sales day.</p></div></div>
+    <div class="card" style="--c:var(--mgmt)"><svg class="ico"><use href="#i-clock"/></svg><div><h3>Night-time firefighting</h3><p>Engineers add servers by hand under pressure, with a high risk of mistakes and burnout.</p></div></div>
+    <div class="card" style="--c:var(--cost)"><svg class="ico"><use href="#i-cost"/></svg><div><h3>Paying for idle capacity</h3><p>The only "safe" alternative is a peak-sized fleet all month, about 3× the compute bill.</p></div></div>
+    <div class="card" style="--c:var(--teal)"><svg class="ico"><use href="#i-vpc"/></svg><div><h3>Single point of failure</h3><p>A single server or data-centre (AZ) outage takes the order system offline.</p></div></div>
+    <div class="card" style="--c:var(--net)"><svg class="ico"><use href="#i-sg"/></svg><div><h3>Exposed servers</h3><p>Publicly reachable servers and open admin ports widen the attack surface.</p></div></div>
+  </div>
+
+  <h2><span class="num">4</span>Security and resilience patterns</h2>
+  <div class="grid3">
+    <div class="card" style="--c:var(--net)"><svg class="ico"><use href="#i-alb"/></svg><div><h3>Public ALB, private compute</h3><p>Only the load balancer has a public address. Servers sit in private subnets with no public IPs.</p></div></div>
+    <div class="card" style="--c:var(--sec)"><svg class="ico"><use href="#i-sg"/></svg><div><h3>Security group chaining</h3><p>The app port accepts traffic only from the ALB's security group: no CIDR rules, no port 22.</p></div></div>
+    <div class="card" style="--c:var(--net)"><svg class="ico"><use href="#i-nat"/></svg><div><h3>Outbound-only internet</h3><p>A Regional NAT Gateway lets servers fetch updates but blocks all inbound connections.</p></div></div>
+    <div class="card" style="--c:var(--compute)"><svg class="ico"><use href="#i-asg"/></svg><div><h3>Multi-AZ self-healing</h3><p>Two AZs, minimum 2 servers, ELB health checks: failed servers are replaced automatically.</p></div></div>
+    <div class="card" style="--c:var(--mgmt)"><svg class="ico"><use href="#i-ssm"/></svg><div><h3>No admin ports</h3><p>SSM Session Manager and Run Command over HTTPS replace SSH and bastion hosts.</p></div></div>
+    <div class="card" style="--c:var(--sec)"><svg class="ico"><use href="#i-secrets"/></svg><div><h3>Secrets and least privilege</h3><p>Token in Secrets Manager, IAM managed policies only, IMDSv2 enforced.</p></div></div>
+  </div>
+
+  <h2><span class="num">5</span>Sources</h2>
+  <ul class="sources tight">
+    <li><a href="https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-scaling-target-tracking.html">Target tracking scaling policies for Amazon EC2 Auto Scaling</a></li>
+    <li><a href="https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-elb-health-checks.html">Elastic Load Balancing health checks for an Auto Scaling group</a></li>
+    <li><a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">What is an Application Load Balancer?</a></li>
+    <li><a href="https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html">Regional NAT gateways for automatic multi-AZ expansion</a></li>
+    <li><a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/git-sync.html">AWS CloudFormation Git sync</a></li>
+    <li><a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html">AWS Systems Manager Session Manager</a></li>
+    <li>AWS Well-Architected Framework: <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/welcome.html">Reliability</a>, <a href="https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html">Security</a> and <a href="https://docs.aws.amazon.com/wellarchitected/latest/cost-optimization-pillar/welcome.html">Cost Optimization</a> pillars</li>
+  </ul>
+</section>
+
+<!-- ================= DIAGRAM (landscape) ================= -->
+<section class="wide">
+  <div class="part" style="margin-bottom:8px"><b>TARGET ARCHITECTURE</b><span>Onward Logistics order system on AWS</span></div>
+  <div class="diagram">{{DIAGRAM}}</div>
+  <div class="legend">
+    <div>
+      <h3>Traffic flows</h3>
+      <div class="flow"><span class="dot" style="background:#FF9900">1</span>Users → Internet Gateway → Application Load Balancer (the only public endpoint)</div>
+      <div class="flow"><span class="dot" style="background:#FF9900">2</span>ALB → EC2 on :8080 in both AZs. Health check <b>GET /health</b> every 15 s</div>
+      <div class="flow"><span class="dot" style="background:#7AA116;color:#fff">3</span>EC2 → Regional NAT → IGW, outbound only (updates, git, pip, SSM)</div>
+    </div>
+    <div>
+      <h3>Groups</h3>
+      <div class="row"><span class="sw" style="border:2px solid #8C4FFF"></span>VPC</div>
+      <div class="row"><span class="sw" style="border:2px dashed #00A4A6"></span>Region / Availability Zone</div>
+      <div class="row"><span class="sw" style="background:#F2F6E8;border:2px solid #7AA116"></span>Public subnet (ALB only)</div>
+      <div class="row"><span class="sw" style="background:#E6F6F7;border:2px solid #00A4A6"></span>Private subnet (servers)</div>
+    </div>
+    <div>
+      <h3>Controls</h3>
+      <div class="row"><span class="sw" style="border:2px dashed #ED7100"></span>Auto Scaling group (min 2 / max 6)</div>
+      <div class="row"><span class="sw" style="border:2px dashed #DD344C"></span>Security group boundary</div>
+      <div class="row"><span class="sw" style="border-top:2px dashed #E7157B;height:0"></span>Control plane (scaling, SSM)</div>
+      <div class="row"><span class="sw" style="border-top:2px solid #2E27AD;height:0"></span>Git → Git sync → CloudFormation</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PART B ================= -->
+<section class="section">
+  <div class="part"><b>PART B</b><span>Business value</span></div>
+
+  <h2><span class="num">1</span>Chosen approach</h2>
+  <p class="lead">A single internet-facing <b>Application Load Balancer</b> is the only public entry point. Behind it, an <b>EC2 Auto Scaling group</b> of small <code>t3.micro</code> servers runs in <b>private subnets across two Availability Zones</b>. A <b>target-tracking policy</b> keeps average CPU near <b>50%</b>, adding servers (up to 6) during a sales rush and removing them (down to 2) afterwards. Nobody has to touch it.</p>
+  <p>Each new server installs the order application itself at boot from a pinned Git release. Each page shows which server and AZ answered. A <b>Regional NAT Gateway</b> lets the servers download updates without being reachable from the internet. Everything is defined in one <b>CloudFormation</b> template that deploys automatically from Git through <b>Git sync</b>, so the environment can be rebuilt from the repository.</p>
+
+  <div class="grid3" style="margin:10px 0 4px">
+    <div class="card" style="--c:var(--compute)"><svg class="ico"><use href="#i-chart"/></svg><div><h3>Scale out</h3><p>CPU above 50% → CloudWatch alarm → ASG launches servers (max 6).</p></div></div>
+    <div class="card" style="--c:var(--cost)"><svg class="ico"><use href="#i-cost"/></svg><div><h3>Scale in</h3><p>After ~15 min of low CPU the ASG removes extra servers (min 2).</p></div></div>
+    <div class="card" style="--c:var(--teal)"><svg class="ico"><use href="#i-asg"/></svg><div><h3>Self-heal</h3><p>Failed /health → ALB marks the server unhealthy → ASG replaces it.</p></div></div>
+  </div>
+
+  <h2><span class="num">2</span>Services and why</h2>
+  <table>
+    <thead><tr><th style="width:30%">AWS service</th><th>Role in the solution</th><th style="width:30%">Why this choice</th></tr></thead>
+    <tbody>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-vpc"/></svg>Amazon VPC</td><td>Public and private subnets in 2 AZs, route tables</td><td>Network isolation and AZ fault tolerance</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-alb"/></svg>Application Load Balancer</td><td>Single public address, spreads requests, health checks</td><td>Stable endpoint while servers come and go</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-asg"/></svg>EC2 Auto Scaling</td><td>Keeps 2 to 6 healthy servers, target tracking at 50% CPU</td><td>Elastic and self-healing, scales both ways</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-lt"/></svg>Launch Template + EC2</td><td>AL2023, t3.micro, IMDSv2, UserData installs the app</td><td>Every server built identically, Free Tier sized</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-cw"/></svg>Amazon CloudWatch</td><td>CPU metric and alarms behind target tracking</td><td>Managed by the policy, nothing to hand-tune</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-nat"/></svg>Regional NAT Gateway</td><td>Outbound-only internet for all AZs</td><td>One resource, expands into each AZ automatically</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-ssm"/></svg>AWS Systems Manager</td><td>Session Manager shell, Run Command load test</td><td>Admin access with zero open ports</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-secrets"/></svg>AWS Secrets Manager</td><td>Generated token for the load-test endpoint</td><td>Secret never stored in code or Git</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-iam"/></svg>AWS IAM</td><td>Instance role with managed policies only</td><td>Least privilege, auditable, no inline policies</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-cfn"/></svg>CloudFormation + Git sync</td><td>Whole stack as code, deployed on every push</td><td>Repeatable, reviewable, rebuildable from Git</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="section">
+  <h2><span class="num">3</span>Who benefits</h2>
+  <div class="grid2">
+    <div class="card" style="--c:var(--compute)"><svg class="ico lg"><use href="#i-asg"/></svg><div><h3>CTO: elasticity</h3><p>Capacity follows demand automatically, in both directions, with no one touching it.</p></div></div>
+    <div class="card" style="--c:var(--sec)"><svg class="ico lg"><use href="#i-sg"/></svg><div><h3>Head of Security: isolation</h3><p>One public entry point, private servers, no admin ports, secrets kept out of code.</p></div></div>
+    <div class="card" style="--c:var(--teal)"><svg class="ico lg"><use href="#i-cw"/></svg><div><h3>Head of Ops: resilience and visibility</h3><p>Survives server or AZ loss, self-heals, and every page shows which server answered.</p></div></div>
+    <div class="card" style="--c:var(--cost)"><svg class="ico lg"><use href="#i-cost"/></svg><div><h3>Finance Lead: pay for use</h3><p>2 small servers on quiet days and more only during the rush. MaxSize caps the worst case.</p></div></div>
+    <div class="card" style="--c:var(--net)"><svg class="ico lg"><use href="#i-users"/></svg><div><h3>Customers and merchants</h3><p>Fast, available ordering on the days that matter most.</p></div></div>
+    <div class="card" style="--c:var(--dev)"><svg class="ico lg"><use href="#i-git"/></svg><div><h3>Engineering team</h3><p>Everything in Git: reviewable changes, automatic deploys, one-step rebuild.</p></div></div>
+  </div>
+
+  <h2><span class="num">&#10003;</span>Requirements traceability</h2>
+  <table>
+    <thead><tr><th style="width:24%">Stakeholder</th><th style="width:34%">Requirement</th><th>Design answer</th></tr></thead>
+    <tbody>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-asg"/></svg>CTO</td><td>Adjust automatically to CPU spikes, scale back in</td><td>ASG + target tracking on <code>ASGAverageCPUUtilization</code> = 50%</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-sg"/></svg>Head of Security</td><td>One public entry point, servers unreachable, no admin ports</td><td>Public ALB; EC2 in private subnets; App SG allows ALB SG only; SSM, no SSH</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-cw"/></svg>Head of Ops</td><td>Survive server / AZ loss, see which server answered</td><td>2 AZs, min 2, ELB health checks; page shows instance ID and AZ</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-cost"/></svg>Finance Lead</td><td>Cost on a quiet vs peak day, and why</td><td>Small burstable instances, min 2 / max 6, cost model below</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-nat"/></svg>Platform</td><td>Private servers can download updates</td><td>Regional NAT Gateway, private route 0.0.0.0/0 → NAT</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-cfn"/></svg>Standards</td><td>Everything as code, no inline policies, naming and tags</td><td>CloudFormation + Git sync, managed policies, tags on every resource</td></tr>
+    </tbody>
+  </table>
+
+</section>
+
+<section class="section">
+  <h2 style="margin-top:0"><span class="num">4</span>Cost: quiet day vs sales day</h2>
+  <p class="muted" style="font-size:8.4pt">Approximate eu-west-1 on-demand list prices; confirm with the AWS Pricing Calculator before sign-off.</p>
+  <table>
+    <thead><tr><th style="width:30%">Component</th><th>Unit price</th><th style="width:20%">Quiet day</th><th style="width:20%">Sales day</th></tr></thead>
+    <tbody>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-ec2"/></svg>EC2 t3.micro</td><td>$0.0114 / instance-hour</td><td>48 h → $0.55</td><td>72 h → $0.82</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-chart"/></svg>T3 unlimited surplus</td><td>$0.05 / vCPU-hour</td><td>$0.00</td><td>≤ $1.00</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-alb"/></svg>Application Load Balancer</td><td>$0.0252 / h + LCU</td><td>$0.65</td><td>$0.80</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-nat"/></svg>Regional NAT (2 AZs) + data</td><td>$0.048 / h per AZ + $0.048 / GB</td><td>$2.35</td><td>$2.45</td></tr>
+      <tr><td class="svc"><svg class="ico sm"><use href="#i-cw"/></svg>EBS, Secrets, CloudWatch</td><td>various</td><td>$0.20</td><td>$0.27</td></tr>
+      <tr class="chosen"><td><b>Total per day</b></td><td></td><td><b>≈ $3.75</b></td><td><b>≈ $5.35</b></td></tr>
+    </tbody>
+  </table>
+  <div class="grid2" style="margin-top:8px">
+    <div class="callout" style="margin-top:0"><svg class="ico"><use href="#i-cost"/></svg><div><h3>Compute is the smallest line</h3><p style="margin:0">The fixed ALB and NAT dominate. A whole sales day adds about $1.60, and a fixed fleet of 6 would cost about 3× the compute all month.</p></div></div>
+    <div class="callout" style="margin-top:0"><svg class="ico"><use href="#i-asg"/></svg><div><h3>Built-in cost guard rail</h3><p style="margin:0"><code>MaxSize = 6</code> caps the worst case; scale-in returns to 2 servers after the rush.</p></div></div>
+  </div>
+
+  <h2><span class="num">5</span>Trade-offs and roadmap</h2>
+  <table>
+    <thead><tr><th style="width:32%">Trade-off accepted now</th><th>Why it is acceptable</th><th style="width:32%">Mitigation / next step</th></tr></thead>
+    <tbody>
+      <tr><td>Orders kept in memory per server</td><td>Demo scope, proves routing and scaling</td><td>DynamoDB or RDS for shared, durable orders</td></tr>
+      <tr><td>HTTP only on the ALB</td><td>No domain or certificate in the lab account</td><td>ACM certificate, HTTPS listener, 80 → 443 redirect</td></tr>
+      <tr><td>Scale-in takes ~15 minutes</td><td>Deliberate: avoids flapping during a rush</td><td>Add scheduled scaling for known campaigns</td></tr>
+      <tr><td>NAT Gateway is the largest fixed cost</td><td>Needed for updates with no inbound exposure</td><td>VPC endpoints when traffic grows</td></tr>
+      <tr><td>On-demand instances only</td><td>Simple and predictable for the lab</td><td>Savings Plan for baseline, Spot for burst</td></tr>
+    </tbody>
+  </table>
+  <div class="timeline">
+    <div class="step" style="--c:var(--compute)"><b>Now</b>ALB + private multi-AZ ASG, target tracking, Regional NAT, Git sync</div>
+    <div class="step" style="--c:var(--sec)"><b>Next</b>HTTPS with ACM, AWS WAF on the ALB, AWS Budget alerts</div>
+    <div class="step" style="--c:var(--net)"><b>Later</b>DynamoDB orders, CloudFront in front, VPC endpoints</div>
+    <div class="step" style="--c:var(--teal)"><b>Future</b>Containers (ECS on Fargate), Spot burst capacity, Savings Plans</div>
+  </div>
+</section>
+</body>
+</html>
