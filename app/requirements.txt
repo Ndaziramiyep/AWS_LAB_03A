@@ -1,0 +1,6 @@
+# web framework (routes and HTML templates)
+flask==3.0.3
+# production web server used by systemd on EC2
+gunicorn==23.0.0
+# AWS SDK, used to read the load token from Secrets Manager
+boto3>=1.34
