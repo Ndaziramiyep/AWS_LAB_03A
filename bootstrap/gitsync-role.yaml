@@ -1,0 +1,228 @@
+AWSTemplateFormatVersion: "2010-09-09"  # template format version
+Description: >-
+  One-time bootstrap for Onward Logistics Git sync. Creates the role that
+  CloudFormation Git sync assumes, and a CloudFormation execution role for the
+  application stack. Managed policies only, no inline policies.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: onward-logistics
+    AllowedPattern: "^[a-z0-9-]+$"  # lowercase letters, digits and dashes only
+  Environment:
+    Type: String
+    Default: lab
+  Owner:
+    Type: String
+    Default: patrick.ndaziramiye
+  CostCenter:
+    Type: String
+    Default: training
+
+Resources:
+  # Lets Git sync read the repo through CodeConnections and drive change sets.
+  GitSyncPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ProjectName}-${Environment}-gitsync"
+      Description: CloudFormation Git sync permissions
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: SyncToCloudFormation
+            Effect: Allow
+            Action:
+              - cloudformation:CreateChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStacks
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:GetTemplate
+              - cloudformation:ListChangeSets
+              - cloudformation:ListStacks
+              - cloudformation:ValidateTemplate
+            Resource: "*"
+          - Sid: PolicyForManagedRules
+            Effect: Allow
+            Action:
+              - events:PutRule
+              - events:PutTargets
+            Resource: "*"
+            Condition:
+              StringEquals:
+                events:ManagedBy:
+                  - cloudformation.sync.codeconnections.amazonaws.com
+          - Sid: PolicyForDescribingRule
+            Effect: Allow
+            Action: events:DescribeRule
+            Resource: "*"
+          - Sid: UseConnection
+            Effect: Allow
+            Action:
+              - codeconnections:UseConnection
+              - codeconnections:GetConnection
+              - codestar-connections:UseConnection
+              - codestar-connections:GetConnection
+            Resource: "*"
+          - Sid: PassExecutionRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt CfnExecutionRole.Arn
+            Condition:
+              StringEquals:
+                iam:PassedToService: cloudformation.amazonaws.com  # role may only be passed to CloudFormation
+
+  # Everything the application stack creates. Attached to the execution role,
+  # and to the sync role as well so the stack also deploys without a service role.
+  StackDeployPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ProjectName}-${Environment}-stack-deploy"
+      Description: Resources provisioned by infra/template.yaml
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: NetworkComputeLoadBalancing
+            Effect: Allow
+            Action:
+              - ec2:*
+              - elasticloadbalancing:*
+              - autoscaling:*
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:PutMetricAlarm
+              - cloudwatch:DeleteAlarms
+            Resource: "*"
+          - Sid: ResolveAmiParameter
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub "arn:${AWS::Partition}:ssm:*:*:parameter/aws/service/*"
+          - Sid: LoadTokenSecret
+            Effect: Allow
+            Action:
+              - secretsmanager:CreateSecret
+              - secretsmanager:DeleteSecret
+              - secretsmanager:DescribeSecret
+              - secretsmanager:UpdateSecret
+              - secretsmanager:TagResource
+              - secretsmanager:UntagResource
+              - secretsmanager:GetRandomPassword
+            Resource: "*"
+          - Sid: AppIamResources
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - iam:UpdateRole
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:ListAttachedRolePolicies
+              - iam:ListRolePolicies
+              - iam:CreatePolicy
+              - iam:DeletePolicy
+              - iam:GetPolicy
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicyVersion
+              - iam:GetPolicyVersion
+              - iam:ListPolicyVersions
+              - iam:TagPolicy
+              - iam:UntagPolicy
+              - iam:CreateInstanceProfile
+              - iam:DeleteInstanceProfile
+              - iam:GetInstanceProfile
+              - iam:AddRoleToInstanceProfile
+              - iam:RemoveRoleFromInstanceProfile
+              - iam:TagInstanceProfile
+            Resource:
+              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*"
+              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${ProjectName}-*"
+              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/${ProjectName}-*"
+          - Sid: PassAppRoleToEc2
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*"
+            Condition:
+              StringEquals:
+                iam:PassedToService: ec2.amazonaws.com  # role may only be passed to EC2
+          - Sid: ServiceLinkedRoles
+            Effect: Allow
+            Action: iam:CreateServiceLinkedRole
+            Resource: "*"
+            Condition:
+              StringLike:
+                iam:AWSServiceName:
+                  - autoscaling.amazonaws.com
+                  - elasticloadbalancing.amazonaws.com
+          - Sid: StackReads
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackResources
+            Resource: "*"
+
+  # Role assumed by CloudFormation Git sync
+  GitSyncRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-gitsync-role"
+      Description: Assumed by CloudFormation Git sync
+      AssumeRolePolicyDocument:  # who may use this role
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.sync.codeconnections.amazonaws.com  # the Git sync service
+            Action: sts:AssumeRole
+      ManagedPolicyArns:  # managed policies only, no inline Policies
+        - !Ref GitSyncPolicy  # Git sync permissions
+        - !Ref StackDeployPolicy  # stack resource permissions
+      Tags:  # mandatory Client Profile tags
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+  # Optional CloudFormation service role for the app stack
+  CfnExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-cfn-exec-role"
+      Description: CloudFormation service role for the application stack
+      AssumeRolePolicyDocument:  # who may use this role
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com  # CloudFormation itself
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId  # only from our own account (confused-deputy guard)
+      ManagedPolicyArns:  # managed policies only, no inline Policies
+        - !Ref StackDeployPolicy  # stack resource permissions
+      Tags:  # mandatory Client Profile tags
+        - Key: Project  # client tag: project
+          Value: !Ref ProjectName
+        - Key: Environment  # client tag: environment
+          Value: !Ref Environment
+        - Key: Owner  # client tag: owner
+          Value: !Ref Owner
+        - Key: CostCenter  # client tag: cost center
+          Value: !Ref CostCenter
+
+Outputs:
+  GitSyncRoleArn:
+    Description: Choose this role in "Sync from Git"
+    Value: !GetAtt GitSyncRole.Arn
+  CfnExecutionRoleArn:
+    Description: Optional stack service role (Permissions step)
+    Value: !GetAtt CfnExecutionRole.Arn
