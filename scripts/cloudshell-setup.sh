@@ -65,14 +65,21 @@ else
 fi
 
 sync_repo() {
-  if [[ -d "$REPO_DIR/.git" ]]; then
-    git -C "$REPO_DIR" pull --ff-only --quiet || warn "could not fast-forward $REPO_DIR, using it as is"
+  if [[ "$REPO_DIR" == "$HOME/$GITHUB_REPO" && -d "$REPO_DIR/.git" ]]; then
+    # Script-managed clone: always match GitHub exactly (discards any edits made in CloudShell).
+    git -C "$REPO_DIR" fetch --quiet origin "$BRANCH" \
+      && git -C "$REPO_DIR" reset --quiet --hard "origin/$BRANCH" \
+      || warn "could not update $REPO_DIR from GitHub, using it as is"
   elif [[ ! -f "$REPO_DIR/infra/template.yaml" ]]; then
     git clone --quiet --branch "$BRANCH" "$REPO_URL" "$REPO_DIR"
   fi
   [[ -f "$REPO_DIR/infra/template.yaml" ]] || die "infra/template.yaml not found in $REPO_DIR"
-  sed -i 's/\r$//' "$REPO_DIR"/scripts/*.sh 2>/dev/null || true   # strip Windows line endings if any
-  chmod +x "$REPO_DIR"/scripts/*.sh
+}
+
+# demo <check>: run scripts/demo.sh with bash (no chmod, so the clone stays clean).
+demo() {
+  [[ "$(stack_status "$STACK")" == NONE ]] && die "stack $STACK does not exist yet, run: $0 deploy"
+  STACK_NAME="$STACK" bash "$REPO_DIR/scripts/demo.sh" "$1" "$STACK"
 }
 
 # deployment_value <Key>: read a parameter value from deployment-file.yaml.
@@ -301,10 +308,9 @@ do_verify() {
 
   curl -fsS --max-time 10 "$alb/health" >/dev/null && ok "$alb/health responds" || warn "$alb/health did not respond yet"
 
-  local demo="$REPO_DIR/scripts/demo.sh"
   for c in outputs balance health private egress; do
     step "Proof: demo.sh $c"
-    STACK_NAME="$STACK" "$demo" "$c" || warn "demo.sh $c failed"
+    demo "$c" || warn "demo.sh $c failed"
   done
 
   step "Done"
@@ -324,8 +330,8 @@ do_status() {
       --query "{latest:LatestSync.Status,lastSuccess:LatestSuccessfulSync.Status,commit:LatestSync.Target.Revision.Sha}" --output table || true
   fi
   if [[ "$(stack_status "$STACK")" != NONE ]]; then
-    STACK_NAME="$STACK" "$REPO_DIR/scripts/demo.sh" outputs
-    STACK_NAME="$STACK" "$REPO_DIR/scripts/demo.sh" health
+    demo outputs
+    demo health
   fi
 }
 
@@ -372,7 +378,7 @@ case "$CMD" in
   deploy)    do_preflight; do_deploy ;;
   verify)    sync_repo; do_verify ;;
   status)    sync_repo; do_status ;;
-  demo)      sync_repo; STACK_NAME="$STACK" "$REPO_DIR/scripts/demo.sh" "${2:-outputs}" "$STACK" ;;
+  demo)      sync_repo; demo "${2:-outputs}" ;;
   teardown)
     read -r -p "Delete $STACK, its Git sync config and $BOOT_STACK in $REGION? [y/N] " a
     if [[ "$a" == [yY]* ]]; then do_teardown; else echo "cancelled"; fi ;;
