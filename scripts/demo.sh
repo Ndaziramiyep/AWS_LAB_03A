@@ -28,7 +28,7 @@ case "$CHECK" in
   outputs)   # 1. Single public address
     aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" --query "Stacks[0].Outputs" --output table ;;
   balance)   # 2. Requests shared across servers
-    for i in $(seq 1 20); do curl -s "$ALB/whoami" | python -c "import json,sys;d=json.load(sys.stdin);print(d['instance_id'],d['availability_zone'])"; done | sort | uniq -c ;;
+    for i in $(seq 1 20); do curl -s "$ALB/whoami" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['instance_id'],d['availability_zone'])"; done | sort | uniq -c ;;
   health)    # Target group health view
     aws elbv2 describe-target-health --target-group-arn "$TG" --region "$REGION" \
       --query "TargetHealthDescriptions[].[Target.Id,Target.AvailabilityZone,TargetHealth.State]" --output table ;;
