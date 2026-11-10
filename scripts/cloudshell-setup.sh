@@ -87,6 +87,21 @@ deployment_value() {
   sed -nE "s/^[[:space:]]+$1:[[:space:]]*\"?([^\"#]*[^\"#[:space:]])\"?.*/\1/p" "$REPO_DIR/deployment-file.yaml" | head -1
 }
 
+# deployment_section parameters|tags: print "Key=Value" for each entry of that block in deployment-file.yaml.
+deployment_section() {
+  awk -v sec="$1" '
+    /^[^[:space:]#]/ { insec = ($0 ~ "^" sec ":"); next }   # top-level key starts a new block
+    insec && /^[[:space:]]+[A-Za-z0-9]+:/ {
+      line = $0
+      match(line, /^[[:space:]]+[A-Za-z0-9]+:/)
+      key = substr(line, RSTART, RLENGTH); gsub(/[[:space:]:]/, "", key)
+      val = substr(line, RSTART + RLENGTH)
+      sub(/[[:space:]]+#.*$/, "", val); sub(/^[[:space:]]+/, "", val); sub(/[[:space:]]+$/, "", val)
+      gsub(/^"|"$/, "", val)
+      print key "=" val
+    }' "$REPO_DIR/deployment-file.yaml"
+}
+
 # ref_exists <ref>: true if the branch or tag exists on GitHub (servers clone it at boot).
 ref_exists() {
   git ls-remote --exit-code "$REPO_URL" "refs/tags/$1" "refs/heads/$1" >/dev/null 2>&1
@@ -245,6 +260,25 @@ deploy_gitsync() {
   local role_arn; role_arn="$(aws iam get-role --role-name "$SYNC_ROLE_NAME" --query Role.Arn --output text)" \
     || die "role $SYNC_ROLE_NAME not found, run: $0 bootstrap"
   clear_failed_stack "$STACK"
+
+  # Git sync only updates an existing stack, so create it once from the same
+  # deployment-file.yaml (template, parameters, tags). Git sync owns it afterwards.
+  if [[ "$(stack_status "$STACK")" == NONE ]]; then
+    if sync_config_exists; then                            # left over from a failed first sync
+      aws codeconnections delete-sync-configuration --sync-type CFN_STACK_SYNC --resource-name "$STACK"
+      ok "removed stale Git sync configuration"
+    fi
+    local params tags
+    mapfile -t params < <(deployment_section parameters)
+    mapfile -t tags < <(deployment_section tags)
+    echo "  Creating $STACK from deployment-file.yaml (NAT + ALB + instances take ~10 min)..."
+    aws cloudformation deploy --stack-name "$STACK" \
+      --template-file "$REPO_DIR/$(sed -nE 's/^template-file-path:[[:space:]]*([^[:space:]#]+).*/\1/p' "$REPO_DIR/deployment-file.yaml")" \
+      --capabilities CAPABILITY_NAMED_IAM \
+      --parameter-overrides "${params[@]}" --tags "${tags[@]}" --no-fail-on-empty-changeset
+    ok "$STACK: $(stack_status "$STACK")"
+  fi
+
   if sync_config_exists; then
     ok "Git sync already configured for $STACK (every push to $BRANCH redeploys it)"
   else
@@ -254,17 +288,21 @@ deploy_gitsync() {
     ok "Git sync configured: $GITHUB_OWNER/$GITHUB_REPO@$BRANCH -> deployment-file.yaml -> $STACK"
   fi
 
-  echo "  Waiting for Git sync to create/update the stack (NAT + instances take ~10 min)..."
-  local s="" last="" i
-  for (( i = 0; i < 180; i++ )); do
+  # Watch the first sync (it should find nothing to change). Up to 20 min if it does update the stack.
+  echo "  Waiting for the first Git sync..."
+  local s="" st="" last="" i
+  for (( i = 0; i < 120; i++ )); do
     s="$(aws codeconnections get-resource-sync-status --sync-type CFN_STACK_SYNC --resource-name "$STACK" \
       --query "LatestSync.Status" --output text 2>/dev/null || echo PENDING)"
-    local st; st="$(stack_status "$STACK")"
+    st="$(stack_status "$STACK")"
     [[ "$s/$st" != "$last" ]] && echo "  $(date +%H:%M:%S) sync: $s   stack: $st" && last="$s/$st"
-    [[ "$s" == "FAILED" ]] && { aws codeconnections get-resource-sync-status --sync-type CFN_STACK_SYNC \
-      --resource-name "$STACK" --query "LatestSync.Events[].[Time,Event]" --output table || true; die "Git sync failed"; }
+    if [[ "$s" == "FAILED" ]]; then
+      aws codeconnections get-resource-sync-status --sync-type CFN_STACK_SYNC --resource-name "$STACK" \
+        --query "LatestSync.Events[].[Time,Event]" --output table || true
+      die "Git sync failed (the stack itself is fine; fix the cause, push, and check: $0 status)"
+    fi
     [[ "$s" == "SUCCEEDED" && "$st" == *_COMPLETE && "$st" != *ROLLBACK* ]] && break
-    [[ "$st" == *ROLLBACK_COMPLETE || "$st" == *FAILED ]] && wait_stack "$STACK" 1
+    (( i >= 30 )) && [[ "$s" == PENDING || "$s" == None ]] && { warn "no sync attempt yet; the next push to $BRANCH will trigger one"; break; }
     sleep 10
   done
   wait_stack "$STACK" 5
