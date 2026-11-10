@@ -130,6 +130,14 @@ clear_failed_stack() {
   fi
 }
 
+# show_failures <stack>: print why resources failed (first failure is usually the real cause).
+show_failures() {
+  echo "${c_red}  Failed resources in $1 (oldest last; the bottom row is usually the root cause):${c_off}"
+  aws cloudformation describe-stack-events --stack-name "$1" --max-items 100 \
+    --query "StackEvents[?contains(ResourceStatus,'FAILED') && ResourceStatusReason!='Resource creation cancelled'].[LogicalResourceId,ResourceType,ResourceStatusReason]" \
+    --output table || true
+}
+
 # wait_stack <name> <minutes>: poll until the stack settles, print each status change.
 wait_stack() {
   local name="$1" limit=$(( $2 * 6 )) last="" s i
@@ -139,9 +147,7 @@ wait_stack() {
     case "$s" in
       CREATE_COMPLETE|UPDATE_COMPLETE|IMPORT_COMPLETE) return 0 ;;
       *ROLLBACK_COMPLETE|*FAILED)
-        aws cloudformation describe-stack-events --stack-name "$name" --max-items 40 \
-          --query "StackEvents[?contains(ResourceStatus,'FAILED')].[LogicalResourceId,ResourceStatusReason]" --output table || true
-        die "$name ended in $s" ;;
+        show_failures "$name"; die "$name ended in $s" ;;
     esac
     sleep 10
   done
@@ -275,7 +281,8 @@ deploy_gitsync() {
     aws cloudformation deploy --stack-name "$STACK" \
       --template-file "$REPO_DIR/$(sed -nE 's/^template-file-path:[[:space:]]*([^[:space:]#]+).*/\1/p' "$REPO_DIR/deployment-file.yaml")" \
       --capabilities CAPABILITY_NAMED_IAM \
-      --parameter-overrides "${params[@]}" --tags "${tags[@]}" --no-fail-on-empty-changeset
+      --parameter-overrides "${params[@]}" --tags "${tags[@]}" --no-fail-on-empty-changeset \
+      || { show_failures "$STACK"; die "creating $STACK failed (see the reasons above)"; }
     ok "$STACK: $(stack_status "$STACK")"
   fi
 
@@ -317,7 +324,8 @@ deploy_cli() {
     --parameter-overrides ProjectName="$PROJECT" Environment="$ENVIRONMENT" Owner="$OWNER" CostCenter="$COST_CENTER" \
       StudentFullName="$STUDENT" AppRepoUrl="$REPO_URL" AppRepoRef="$APP_REF" \
       InstanceType=t3.micro CpuCredits=unlimited MinSize=2 MaxSize=6 TargetCpu=50 \
-    --tags "${TAGS[@]}" ManagedBy=cloudformation-cli --no-fail-on-empty-changeset
+    --tags "${TAGS[@]}" ManagedBy=cloudformation-cli --no-fail-on-empty-changeset \
+    || { show_failures "$STACK"; die "deploying $STACK failed (see the reasons above)"; }
 }
 
 do_deploy() {
