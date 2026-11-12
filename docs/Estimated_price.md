@@ -1,0 +1,1 @@
+Estimated Amount calculated by AWS Calculator: <a href="https://calculator.aws/#/estimate?id=38cba20a23d28edb4af431e0e5c636de1f567cdc" > Estimated Price </a> 
